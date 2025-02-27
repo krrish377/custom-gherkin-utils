@@ -7,71 +7,36 @@ import { glob } from 'glob';
 import prettier from 'prettier';
 
 /**
- * Converts a readable stream into an array of messages.Envelope
+ * Processes feature files **one at a time** to avoid potential mapping issues.
+ *
+ * This function reads the contents of each specified feature file, performs necessary
+ * transformations or updates, and writes the modified data back to the same file.
+ *
+ * **Supported path types**:
+ * - **Absolute path** (e.g., `/home/user/project/features/login.feature`)
+ * - **Relative path** (e.g., `./features/login.feature`)
+ * - **Glob pattern** (e.g., `features/*.feature`)
+ *
+ * By handling files sequentially rather than concurrently, each file is updated without
+ * interference from other file operations, helping prevent data corruption or conflicts.
+ *
+ * @param {string} filePathOrPattern - The absolute/relative path or glob pattern of the feature file(s) to process.
+ * @returns {Promise<void>} A promise that resolves once all files matching the path or pattern have been processed and updated.
+ *
+ * @example
+ * // Process a single file with a relative path
+ * processFeatureFile('./features/login.feature')
+ *   .then(() => console.log('Feature file processed successfully!'))
+ *   .catch(error => console.error('Error processing feature file:', error));
+ *
+ * @example
+ * // Process multiple files via a glob pattern
+ * processFeatureFile('features/*.feature')
+ *   .then(() => console.log('All feature files processed successfully!'))
+ *   .catch(error => console.error('Error processing feature files:', error));
  */
-async function streamToArray(readableStream: Readable): Promise<messages.Envelope[]> {
-  return new Promise<messages.Envelope[]>((resolve, reject) => {
-    const items: messages.Envelope[] = [];
-    readableStream.on('data', (item) => items.push(item));
-    readableStream.on('error', (err: Error) => reject(err));
-    readableStream.on('end', () => resolve(items));
-  });
-}
-
-/**
- * Replaces placeholders in text with values from Examples.
- */
-function replacePlaceholders(text: string, placeholderMap: Record<string, string>): string {
-  return text.replace(/<([^>]+)>/g, (_, placeholder) => {
-    return placeholderMap[placeholder] ?? `<${placeholder}>`; // Keep as is if no value found
-  });
-}
-
-/**
- * Converts a Scenario Outline to a Scenario by replacing placeholders with Example values.
- */
-function processScenarioOutline(scenario: messages.Scenario): messages.Scenario | null {
-  if (scenario.examples.length === 0) {
-    return null; // No Examples → No need to modify
-  }
-
-  const example = scenario.examples[0]; // Only 1 Example guaranteed
-  if (!example.tableHeader || !example.tableBody || example.tableBody.length === 0) {
-    return null; // Malformed Examples → Ignore
-  }
-
-  const placeholderMap: Record<string, string> = {};
-
-  // ✅ Create a placeholder-value mapping using the first row of Examples
-  example.tableHeader.cells.forEach((cell, i) => {
-    placeholderMap[cell.value] = example.tableBody[0].cells[i]?.value || ''; // Use first row values
-  });
-
-  const newId = IdGenerator.uuid();
-
-  // ✅ Generate a new Scenario with replaced placeholders
-  return {
-    ...scenario,
-    examples: [], // Remove Examples section
-    name: replacePlaceholders(scenario.name, placeholderMap),
-    steps: scenario.steps.map((step) => ({
-      ...step,
-      text: replacePlaceholders(step.text, placeholderMap),
-      dataTable: step.dataTable, // ✅ Preserve Data Table
-      docString: step.docString
-        ? { ...step.docString, content: replacePlaceholders(step.docString.content, placeholderMap) }
-        : undefined // ✅ Preserve and replace DocStrings
-    })),
-    id: newId(), // Assign a new unique ID
-    tags: [...(scenario.tags || [])] // ✅ Preserve scenario-level tags
-  };
-}
-
-/**
- * Processes feature files **one at a time** to avoid mapping issues.
- */
-export async function processFeatureFiles(featureFilesPattern: string): Promise<void> {
-  const files = glob.sync(featureFilesPattern);
+export async function processFeatureFiles(filePathOrPattern: string): Promise<void> {
+  const files = glob.sync(filePathOrPattern);
   const defaultOptions = {
     defaultDialect: 'en',
     newId: IdGenerator.uuid()
@@ -139,6 +104,67 @@ export async function processFeatureFiles(featureFilesPattern: string): Promise<
 }
 
 /**
+ * Converts a readable stream into an array of messages.Envelope
+ */
+async function streamToArray(readableStream: Readable): Promise<messages.Envelope[]> {
+  return new Promise<messages.Envelope[]>((resolve, reject) => {
+    const items: messages.Envelope[] = [];
+    readableStream.on('data', (item) => items.push(item));
+    readableStream.on('error', (err: Error) => reject(err));
+    readableStream.on('end', () => resolve(items));
+  });
+}
+
+/**
+ * Replaces placeholders in text with values from Examples.
+ */
+function replacePlaceholders(text: string, placeholderMap: Record<string, string>): string {
+  return text.replace(/<([^>]+)>/g, (_, placeholder) => {
+    return placeholderMap[placeholder] ?? `<${placeholder}>`; // Keep as is if no value found
+  });
+}
+
+/**
+ * Converts a Scenario Outline to a Scenario by replacing placeholders with Example values.
+ */
+function processScenarioOutline(scenario: messages.Scenario): messages.Scenario | null {
+  if (scenario.examples.length === 0) {
+    return null; // No Examples → No need to modify
+  }
+
+  const example = scenario.examples[0]; // Only 1 Example guaranteed
+  if (!example.tableHeader || !example.tableBody || example.tableBody.length === 0) {
+    return null; // Malformed Examples → Ignore
+  }
+
+  const placeholderMap: Record<string, string> = {};
+
+  // ✅ Create a placeholder-value mapping using the first row of Examples
+  example.tableHeader.cells.forEach((cell, i) => {
+    placeholderMap[cell.value] = example.tableBody[0].cells[i]?.value || ''; // Use first row values
+  });
+
+  const newId = IdGenerator.uuid();
+
+  // ✅ Generate a new Scenario with replaced placeholders
+  return {
+    ...scenario,
+    examples: [], // Remove Examples section
+    name: replacePlaceholders(scenario.name, placeholderMap),
+    steps: scenario.steps.map((step) => ({
+      ...step,
+      text: replacePlaceholders(step.text, placeholderMap),
+      dataTable: step.dataTable, // ✅ Preserve Data Table
+      docString: step.docString
+        ? { ...step.docString, content: replacePlaceholders(step.docString.content, placeholderMap) }
+        : undefined // ✅ Preserve and replace DocStrings
+    })),
+    id: newId(), // Assign a new unique ID
+    tags: [...(scenario.tags || [])] // ✅ Preserve scenario-level tags
+  };
+}
+
+/**
  * Formats a feature file with updated scenarios, background, and tags.
  */
 function formatFeatureFile(
@@ -159,7 +185,7 @@ function formatFeatureFile(
 
   // ✅ Include Background steps if present
   if (background) {
-    featureContent += `Background:\n`;
+    featureContent += `Background: ${background.name}\n`; // ✅ PRESERVE TITLE HERE
     background.steps.forEach((step) => {
       featureContent += `  ${step.keyword} ${step.text}\n`;
     });

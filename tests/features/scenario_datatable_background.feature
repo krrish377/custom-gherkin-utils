@@ -1,7 +1,7 @@
 @regression
 Feature: Data Table Handling
 
-  Background:
+  Background: launching website
     Given user launches url
     When the user is on the login page
 
