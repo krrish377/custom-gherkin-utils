@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ESNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,        // ✅ Helps with debugging TypeScript in Jest
+    "allowJs": true,          // ✅ Allows JavaScript imports if needed
+    "forceConsistentCasingInFileNames": true // ✅ Prevents case-sensitive import issues
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "tests", "dist"]
+}

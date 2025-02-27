@@ -1,0 +1,12 @@
+# Exclude unnecessary files from NPM package
+src/
+tests/
+coverage/
+node_modules/
+.vscode/
+jest.config.cjs
+tsconfig.json
+tsconfig.jest.json
+dist/tests/
+dist/src/
+dist/**/*.d.ts.map

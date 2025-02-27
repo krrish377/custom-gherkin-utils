@@ -1,0 +1,63 @@
+diff --git a/node_modules/wdio-cucumber-parallel-execution/featureFileSplitter.js b/node_modules/wdio-cucumber-parallel-execution/featureFileSplitter.js
+index ad56d0b..c7eec12 100644
+--- a/node_modules/wdio-cucumber-parallel-execution/featureFileSplitter.js
++++ b/node_modules/wdio-cucumber-parallel-execution/featureFileSplitter.js
+@@ -139,29 +139,48 @@ var featureFileSplitter = function featureFileSplitter() {
+      * @private
+      */
+     this.splitFeature = function (scenarios, featureTemplate) {
+-
++        const featureTags = featureTemplate.feature.tags;
+         try {
+             var scenarioOutline = scenarios.filter(function (scenario) {
+                 return scenario.type !== "Background";
+             }).map(function (scenario) {
+                 if (scenario.type === "ScenarioOutline") {
+                     var scenarioTemplate = _.cloneDeep(scenario);
+-                    if (scenario.examples[0] == undefined || scenario.examples[0] == null) {
+-                        console.log("Gherkin syntax error : Missing examples for Scenario Outline :", scenario.name);
++                    if (!scenario.examples || scenario.examples.length === 0) {
++                        console.log("Gherkin syntax error: Missing examples for Scenario Outline:", scenario.name);
+                         process.exit(0);
+                     }
+-                    return scenario.examples[0].tableBody.map(function (row) {
+-                        var modifiedScenario = _.cloneDeep(scenarioTemplate);
+-                        modifiedScenario.examples[0].tableBody = [row];
+-                        return modifiedScenario;
+-                    });
+-                } else return scenario;
++    
++                    // Split each example into its own scenario outline
++                    return scenario.examples.map(function (example) {
++                        return example.tableBody.map(function (row) {
++                            var modifiedScenario = _.cloneDeep(scenarioTemplate);
++                            // Retain the original scenario name and structure
++                            // Include only the current example's row in the examples
++                            modifiedScenario.examples = [_.cloneDeep(example)];
++                            modifiedScenario.examples[0].tableBody = [row];
++                            // Combine tags: feature-level, scenario-level, and example-level
++                            modifiedScenario.tags = [].concat(
++                                _toConsumableArray(featureTags || []),
++                                _toConsumableArray(scenario.tags || []),
++                                _toConsumableArray(example.tags || [])
++                            );
++                            return modifiedScenario;
++                        });
++                    }).flat();
++                } else {
++                    // For non-ScenarioOutline scenarios
++                    scenario.tags = [].concat(
++                        _toConsumableArray(featureTags || []),
++                        _toConsumableArray(scenario.tags || [])
++                    );
++                    return scenario;
++                }
+             });
+     
+             return _.flatten(scenarioOutline).map(function (scenario) {
+                 var feature = _.cloneDeep(featureTemplate);
+                 var updatedScenario = _.cloneDeep(scenario);
+-                updatedScenario.tags = [].concat(_toConsumableArray(scenario.tags)).concat(featureTemplate.feature.tags);
+                 feature.feature.children.push(updatedScenario);
+                 return feature;
+             });
