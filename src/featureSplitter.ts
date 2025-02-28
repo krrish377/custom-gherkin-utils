@@ -54,13 +54,7 @@ export interface SplitParams {
  * remain unexpanded, and we forcibly apply the feature-level background to all scenarios.
  */
 export async function splitScenarioOutlinesByRows(params: SplitParams): Promise<void> {
-  const {
-    sourceSpecDirectory,
-    tmpSpecDirectory,
-    singleFile,
-    language,
-    tagExpression,
-  } = params;
+  const { sourceSpecDirectory, tmpSpecDirectory, singleFile, language, tagExpression } = params;
 
   // 1) Gather .feature files (recursively). If you only want top-level, use `/*.feature`
   let featureFiles: string[] = [];
@@ -85,7 +79,7 @@ export async function splitScenarioOutlinesByRows(params: SplitParams): Promise<
   // 3) Gherkin Streams config
   const gherkinOptions = {
     defaultDialect: 'en',
-    newId: IdGenerator.uuid(),
+    newId: IdGenerator.uuid()
   };
 
   // 4) Parse each file, expand scenario outlines, filter, and write
@@ -110,13 +104,15 @@ export async function splitScenarioOutlinesByRows(params: SplitParams): Promise<
 
     for (const entry of scenarioEntries) {
       // Expand scenario outlines that have multiple rows
-      const expansions = expandScenarioOutlineRows(entry.scenario);
+      const expandedScenarios = expandScenarioOutlineRows(entry.scenario);
 
       // For each expanded scenario, optionally filter by tag expression
-      for (const scenarioCandidate of expansions) {
+      for (const scenarioCandidate of expandedScenarios) {
+        // ✅ Gather all relevant tags AFTER expansion
         const combinedTags = gatherAllTagNames(feature, entry.rule, scenarioCandidate);
+        // ✅ Apply filtering AFTER gathering all tags
         if (tagFilter && !tagFilter.evaluate(combinedTags)) {
-          continue; // skip if it doesn't match
+          continue; //✅ skip if it doesn't match
         }
 
         scenarioCount++;
@@ -176,7 +172,7 @@ function collectScenarioEntries(feature: messages.Feature): ScenarioEntry[] {
         scenario: child.scenario,
         rule: undefined,
         featureBackgrounds,
-        ruleBackgrounds: [],
+        ruleBackgrounds: []
       });
     } else if (child.rule) {
       const rule = child.rule;
@@ -193,7 +189,7 @@ function collectScenarioEntries(feature: messages.Feature): ScenarioEntry[] {
           scenario: rc.scenario!,
           rule,
           featureBackgrounds,
-          ruleBackgrounds,
+          ruleBackgrounds
         });
       }
     }
@@ -212,7 +208,7 @@ function expandScenarioOutlineRows(scenario: messages.Scenario): messages.Scenar
     return [scenario];
   }
 
-  let totalRows = 0;
+  /*let totalRows = 0;
   scenario.examples.forEach((ex) => {
     totalRows += ex.tableBody?.length ?? 0;
   });
@@ -234,7 +230,16 @@ function expandScenarioOutlineRows(scenario: messages.Scenario): messages.Scenar
     }
   }
 
-  return expansions;
+  return expansions;*/
+  const expandedScenarios: messages.Scenario[] = [];
+
+  for (const ex of scenario.examples) {
+    for (const row of ex.tableBody ?? []) {
+      expandedScenarios.push(cloneScenarioWithSingleRow(scenario, ex, row));
+    }
+  }
+
+  return expandedScenarios;
 }
 
 /**
@@ -249,37 +254,13 @@ function cloneScenarioWithSingleRow(
 ): messages.Scenario {
   const scenarioCopy = deepCloneScenario(original);
 
- // Ensure we only modify the Examples block that we are focusing on
- scenarioCopy.examples = scenarioCopy.examples?.map((exBlock, index) => {
-    if (exBlock.id === targetEx.id) {
-      // Create a new Example block where only this row is retained
-      return {
-        ...exBlock,
-        tableBody: row ? [row] : [], // Keep only the single row
-      };
-    } else {
-      // Remove all rows from all other Examples blocks
-      return {
-        ...exBlock,
-        tableBody: [], // Ensure tableBody is always an array, not null
-      };
-    }
-  }) ?? [];
-
-  /*if (!scenarioCopy.examples) {
-    return scenarioCopy;
-  }
-
-  scenarioCopy.examples.forEach((exBlock) => {
-    if (exBlock === targetEx) {
-      // keep only the single `row`
-      if (!row) {
-        exBlock.tableBody = [];
-      } else {
-        exBlock.tableBody = [row];
-      }
-    }
-  });*/
+  // Ensure we only modify the Examples block that we are focusing on
+  scenarioCopy.examples = original.examples
+    ?.filter((exBlock) => exBlock.id === targetEx.id)
+    .map((exBlock) => ({
+      ...exBlock,
+      tableBody: row ? [row] : [] // Keep only the single row
+    }));
 
   return scenarioCopy;
 }
@@ -435,7 +416,8 @@ function gatherAllTagNames(
   const featureTags = (feature.tags ?? []).map((t) => t.name);
   const ruleTags = rule ? (rule.tags ?? []).map((t) => t.name) : [];
   const scenarioTags = (scenario.tags ?? []).map((t) => t.name);
-  return [...featureTags, ...ruleTags, ...scenarioTags];
+  const examplesTags = scenario.examples ? scenario.examples.flatMap((ex) => ex.tags?.map((t) => t.name) ?? []) : []; // ✅ Include Examples tags
+  return [...featureTags, ...ruleTags, ...scenarioTags, ...examplesTags];
 }
 
 // --------------------------------------------------------------------------

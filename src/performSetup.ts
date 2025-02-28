@@ -21,4 +21,4 @@ export async function performSetup(options: SplitParams) {
 }
 //'./tests/features'
 //'./tmp'
-performSetup({cleanTmpSpecDirectory: true, sourceSpecDirectory:'.',tmpSpecDirectory:'./tmp',tagExpression: '@ruleTag' });
+//performSetup({cleanTmpSpecDirectory: true, sourceSpecDirectory:'./samplefiles',tmpSpecDirectory:'./tmp',tagExpression: '@scenarioOutlineTag21' });
