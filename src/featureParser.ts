@@ -55,28 +55,35 @@ export async function processFeatureFiles(filePathOrPattern: string): Promise<vo
           const feature = envelope.gherkinDocument.feature;
 
           let background: messages.Background | null = null;
+          let rule: messages.Rule | null = null;
           let scenario: messages.Scenario | undefined;
 
+          // 🏷 Preserve the original feature-level tags
+          const featureTags: messages.Tag[] = [...(feature.tags || [])];
           // ✅ Extract Background and Scenario
           feature.children.forEach((child) => {
             if (child.background) {
               background = child.background; // Save background separately
             }
-            if (child.scenario && !scenario) {
+            if (child.rule) {
+              rule = child.rule;
+              rule.children.forEach((ruleChild) => {
+                if (ruleChild.scenario && !scenario) {
+                  scenario = ruleChild.scenario;
+                }
+              });
+            } else if (child.scenario && !scenario) {
               scenario = child.scenario; // Grab first scenario (since only one is present)
             }
           });
 
           if (!scenario) continue; // Skip if no scenario found
 
-          // 🏷 Preserve the original feature-level tags
-          const featureTags: messages.Tag[] = [...(feature.tags || [])];
-
           if (scenario.examples.length > 0) {
             // 🛠 It's a Scenario Outline with Examples → Modify it
             const updatedScenario = processScenarioOutline(scenario);
             if (updatedScenario) {
-              let updatedFeatureContent = formatFeatureFile(feature, featureTags, background, updatedScenario);
+              let updatedFeatureContent = formatFeatureFile(feature, featureTags, background, rule, updatedScenario);
               updatedFeatureContent = await prettier.format(updatedFeatureContent, {
                 parser: 'gherkin',
                 plugins: ['prettier-plugin-gherkin']
@@ -87,7 +94,7 @@ export async function processFeatureFiles(filePathOrPattern: string): Promise<vo
             }
           } else {
             // 📌 It's a regular Scenario → No modifications needed, but preserve tags
-            let updatedFeatureContent = formatFeatureFile(feature, featureTags, background, scenario);
+            let updatedFeatureContent = formatFeatureFile(feature, featureTags, background, rule, scenario);
             updatedFeatureContent = await prettier.format(updatedFeatureContent, {
               parser: 'gherkin',
               plugins: ['prettier-plugin-gherkin']
@@ -171,6 +178,7 @@ function formatFeatureFile(
   feature: messages.Feature,
   featureTags: messages.Tag[],
   background: messages.Background | null,
+  rule: messages.Rule | null,
   scenario: messages.Scenario
 ): string {
   let featureContent = '';
@@ -182,14 +190,44 @@ function formatFeatureFile(
   }
 
   featureContent += `Feature: ${feature.name}\n\n`;
+  if (feature.description) {
+    featureContent += ` ${feature.description}\n\n`; // ✅ PRESERVE feature description
+  }
 
-  // ✅ Include Background steps if present
+  // ✅ Include Feature Background before all scenarios and Rules if present
   if (background) {
-    featureContent += `Background: ${background.name}\n`; // ✅ PRESERVE TITLE HERE
+    featureContent += `Background: ${background.name}\n`; // ✅ PRESERVE background TITLE HERE
+    if (background.description) {
+      featureContent += ` ${background.description}\n`; // ✅ PRESERVE background description
+    }
     background.steps.forEach((step) => {
       featureContent += `  ${step.keyword} ${step.text}\n`;
     });
     featureContent += `\n`;
+  }
+
+  // ✅ Include Rule if present
+  if (rule) {
+    if (rule.tags.length > 0) {
+      featureContent += `${rule.tags.map((tag) => tag.name).join(' ')}\n`;
+    }
+    featureContent += `Rule: ${rule.name}\n\n`;
+    if (rule.description) {
+      featureContent += ` ${rule.description}\n\n`; // ✅ PRESERVE rule description
+    }
+
+    rule.children.forEach((ruleChild) => {
+      if (ruleChild.background) {
+        featureContent += `Background: ${ruleChild.background.name}\n`;
+        if (ruleChild.background.description) {
+          featureContent += ` ${ruleChild.background.description}\n`; // ✅ PRESERVE rule background description
+        }
+        ruleChild.background.steps.forEach((step) => {
+          featureContent += `  ${step.keyword} ${step.text}\n`;
+        });
+        featureContent += `\n`;
+      }
+    });
   }
 
   // 🏷 Scenario-level tags
@@ -201,6 +239,11 @@ function formatFeatureFile(
 
   // ✅ Include the updated Scenario
   featureContent += `Scenario: ${scenario.name}\n`;
+  if (scenario.description) {
+    featureContent += ` ${scenario.description}\n`; // ✅ PRESERVE scenario description
+  }
+
+  // ✅ Include scenario steps with out merging backgrounds
   scenario.steps.forEach((step) => {
     featureContent += `  ${step.keyword} ${step.text}\n`;
 
@@ -230,8 +273,68 @@ function formatDataTable(dataTable: messages.DataTable): string {
 }
 
 /**
- * Formats a DocString properly
+ * Formats a Gherkin DocString while preserving its original delimiter.
+ *
+ * ### Gherkin DocStrings:
+ * In Gherkin, DocStrings allow multi-line string inputs and can be enclosed using:
+ * - **Triple Quotes (`"""`)** (Default)
+ * - **Triple Backticks (`` ``` ``)** (Alternative format)
+ *
+ * This function ensures:
+ * ✅ **Original delimiter is preserved** (`"""` or `` ``` ``).
+ * ✅ **Content is properly indented** (for readability).
+ * ✅ **Unnecessary leading/trailing spaces are trimmed**.
+ *
+ * ---
+ *
+ * @param {messages.DocString} docString - The DocString object from the Gherkin AST.
+ * @returns {string} - The formatted DocString as a string.
+ *
+ * ---
+ *
+ * ### **Example Usage**
+ *
+ * #### 📌 **Input (Triple Quotes)**
+ * ```gherkin
+ * Scenario: Fetch user data
+ *   Given the API returns:
+ *     """
+ *     {
+ *       "id": 1,
+ *       "name": "John Doe"
+ *     }
+ *     """
+ * ```
+ * ✅ **Output (Preserved `"""` Delimiter)**
+ * ```gherkin
+ *     """
+ *     {
+ *       "id": 1,
+ *       "name": "John Doe"
+ *     }
+ *     """
+ * ```
+ *
+ * ---
+ *
+ * #### 📌 **Input (Triple Backticks)**
+ * ```gherkin
+ * Scenario: Fetch system logs
+ *   Given the system logs contain:
+ *     ```
+ *     Error: Service Unavailable
+ *     Code: 503
+ *     ```
+ * ```
+ * ✅ **Output (Preserved ``` Delimiter)**
+ * ```gherkin
+ *     ```
+ *     Error: Service Unavailable
+ *     Code: 503
+ *     ```
+ * ```
  */
 function formatDocString(docString: messages.DocString): string {
-  return `    """\n    ${docString.content.trim()}\n    """\n`;
+  const delimiter = docString.delimiter || '"""'; // Default to triple quotes
+  return `    ${delimiter}\n    ${docString.content.trim()}\n    ${delimiter}\n`;
 }
