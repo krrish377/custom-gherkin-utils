@@ -164,7 +164,18 @@ function processScenarioOutline(scenario: messages.Scenario): messages.Scenario 
     steps: scenario.steps.map((step) => ({
       ...step,
       text: replacePlaceholders(step.text, placeholderMap),
-      dataTable: step.dataTable, // ✅ Preserve Data Table
+      dataTable: step.dataTable
+        ? {
+            ...step.dataTable,
+            rows: step.dataTable.rows.map((row) => ({
+              ...row,
+              cells: row.cells.map((cell) => ({
+                ...cell,
+                value: replacePlaceholders(cell.value, placeholderMap)
+              }))
+            }))
+          }
+        : undefined, // ✅ Preserve and replace Data Tables
       docString: step.docString
         ? { ...step.docString, content: replacePlaceholders(step.docString.content, placeholderMap) }
         : undefined // ✅ Preserve and replace DocStrings
