@@ -153,6 +153,9 @@ function processScenarioOutline(scenario: messages.Scenario): messages.Scenario 
 
   const newId = IdGenerator.uuid();
 
+  // 🏷 **Move Example-level tags to Scenario level**
+  const scenarioTags = [...(scenario.tags ?? []), ...(example.tags ?? [])];
+
   // ✅ Generate a new Scenario with replaced placeholders
   return {
     ...scenario,
@@ -167,7 +170,7 @@ function processScenarioOutline(scenario: messages.Scenario): messages.Scenario 
         : undefined // ✅ Preserve and replace DocStrings
     })),
     id: newId(), // Assign a new unique ID
-    tags: [...(scenario.tags || [])] // ✅ Preserve scenario-level tags
+    tags: scenarioTags // ✅ Preserve Scenario tags + Move Example tags
   };
 }
 

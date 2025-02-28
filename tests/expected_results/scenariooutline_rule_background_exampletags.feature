@@ -15,11 +15,8 @@ Feature: Demonstrate backgrounds at both feature and rule levels
       Given the system is further set up for this rule
 
     @scenarioOutlineTag
-    Scenario Outline: Perform multiple actions with different outcomes - <pageName>
-      Given I am on the <pageName> page
+    @examplestag1
+    Scenario: Perform multiple actions with different outcomes - Home
+      Given I am on the Home page
       When I perform click "Login"
       Then I should see the login screen appears
-
-      Examples:
-        | pageName |
-        | Home     |

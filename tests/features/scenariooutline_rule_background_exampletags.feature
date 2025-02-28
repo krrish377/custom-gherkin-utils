@@ -20,6 +20,7 @@ Feature: Demonstrate backgrounds at both feature and rule levels
       When I perform click "Login"
       Then I should see the login screen appears
 
+      @examplestag1
       Examples:
         | pageName |
         | Home     |
