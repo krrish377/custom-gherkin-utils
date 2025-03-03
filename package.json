@@ -1,6 +1,6 @@
 {
   "name": "custom-gherkin-utils",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Custom utilities for processing Gherkin feature files",
   "main": "dist/index.js",
   "exports": {

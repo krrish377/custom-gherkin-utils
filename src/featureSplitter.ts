@@ -371,9 +371,10 @@ function buildStepLine(step: messages.Step): string {
   if (step.docString?.content) {
     text += `\n"""\n${step.docString.content}\n"""`;
   }
+  // Handle Data Table (Apply escaping)
   if (step.dataTable?.rows?.length) {
     for (const row of step.dataTable.rows) {
-      const cells = row.cells.map((c) => c.value).join(' | ');
+      const cells = row.cells.map((c) => escapeTableCell(c.value)).join(' | ');
       text += `\n| ${cells} |`;
     }
   }
@@ -392,16 +393,24 @@ function buildExamplesBlock(ex: messages.Examples): string[] {
   }
 
   if (ex.tableHeader?.cells?.length) {
-    const hdr = ex.tableHeader.cells.map((c) => c.value).join(' | ');
+    const hdr = ex.tableHeader.cells.map((c) => escapeTableCell(c.value)).join(' | ');
     lines.push(`| ${hdr} |`);
   }
   if (ex.tableBody?.length) {
     for (const row of ex.tableBody) {
-      const rowVals = row.cells.map((c) => c.value).join(' | ');
+      const rowVals = row.cells.map((c) => escapeTableCell(c.value)).join(' | ');
       lines.push(`| ${rowVals} |`);
     }
   }
   return lines;
+}
+
+function escapeTableCell(value: string): string {
+  return value
+    .replace(/\\(?=\|)/g, '\\\\') // Escape only if `\` is before a `|`
+    .replace(/\|/g, '\\|') // Escape `|` correctly
+    .replace(/(\\\\)+$/, '\\') // Prevent extra escaping at the end
+    .replace(/\n/g, '\\n'); // Escape newlines properly
 }
 
 // --------------------------------------------------------------------------
