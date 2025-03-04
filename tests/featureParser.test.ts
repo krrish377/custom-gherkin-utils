@@ -1,4 +1,4 @@
-import { processFeatureFiles } from '../src/featureParser';
+import { processFeatureFiles } from '../src/index';
 import * as fs from 'fs-extra';
 import path from 'path';
 

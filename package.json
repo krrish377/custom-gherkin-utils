@@ -1,6 +1,6 @@
 {
   "name": "custom-gherkin-utils",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Custom utilities for processing Gherkin feature files",
   "main": "dist/index.js",
   "exports": {
@@ -8,10 +8,10 @@
   },
   "types": "dist/index.d.ts",
   "scripts": {
-    "clean": "rimraf dist/tests dist/src && find dist -name \"*.d.ts.map\" -delete",
+    "clean": "node scripts/cleanup.js",
     "format:features": "npx prettier --write ./tests/**/*.feature",
     "test": "npm run format:features && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config jest.config.cjs",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/performSetup.ts",
     "build": "tsc && npm run clean",
     "start": "node dist/index.js"
   },

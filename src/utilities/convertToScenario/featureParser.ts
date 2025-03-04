@@ -1,7 +1,7 @@
 import { GherkinStreams } from '@cucumber/gherkin-streams';
 import { IdGenerator } from '@cucumber/messages';
 import * as messages from '@cucumber/messages';
-import { Readable } from 'stream';
+import { streamToArray } from '../../helpers/streamUtils';
 import * as fs from 'fs-extra';
 import { glob } from 'glob';
 import prettier from 'prettier';
@@ -108,18 +108,6 @@ export async function processFeatureFiles(filePathOrPattern: string): Promise<vo
       console.error(`❌ Error processing file: ${filePath}`, error);
     }
   }
-}
-
-/**
- * Converts a readable stream into an array of messages.Envelope
- */
-async function streamToArray(readableStream: Readable): Promise<messages.Envelope[]> {
-  return new Promise<messages.Envelope[]>((resolve, reject) => {
-    const items: messages.Envelope[] = [];
-    readableStream.on('data', (item) => items.push(item));
-    readableStream.on('error', (err: Error) => reject(err));
-    readableStream.on('end', () => resolve(items));
-  });
 }
 
 /**
