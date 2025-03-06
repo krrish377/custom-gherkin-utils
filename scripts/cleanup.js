@@ -1,3 +1,4 @@
+// This script removes unnecessary files from dist folder
 const fs = require('fs-extra');
 const path = require('path');
 

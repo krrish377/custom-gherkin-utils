@@ -265,9 +265,8 @@ function buildExamplesBlock(ex: messages.Examples): string[] {
 
 function escapeTableCell(value: string): string {
   return value
-    .replace(/\\(?=\|)/g, '\\\\') // Escape only if `\` is before a `|`
-    .replace(/\|/g, '\\|') // Escape `|` correctly
-    .replace(/(\\\\)+$/, '\\') // Prevent extra escaping at the end
+    .replace(/\\/g, '\\\\') // Escape all backslashes first
+    .replace(/\|/g, '\\|') // Escape `|` as `\|`
     .replace(/\n/g, '\\n'); // Escape newlines properly
 }
 
