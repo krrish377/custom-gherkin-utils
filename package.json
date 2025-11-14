@@ -1,6 +1,6 @@
 {
   "name": "custom-gherkin-utils",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Custom utilities for processing Gherkin feature files",
   "main": "dist/index.js",
   "exports": {
@@ -21,8 +21,8 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20.9.0 <=20.16.0",
-    "npm": ">=9.0.0 <=10.8.2"
+    "node": ">=20.9.0 <23.0.0",
+    "npm": ">=9.0.0"
   },
   "keywords": [
     "gherkin",
