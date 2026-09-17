@@ -4,6 +4,7 @@
 It helps you:
 
 - **Split feature files** that contain multiple `Scenario Outline` blocks into separate files
+- **Split by tag into unique scenarios**, keeping only the `Examples` blocks that match
 - **Convert `Scenario Outline` to concrete `Scenario`s** by replacing example placeholders
 - **Preserve all standard Gherkin constructs** (tags, backgrounds, rules, data tables, docstrings)
 
@@ -42,7 +43,7 @@ yarn add custom-gherkin-utils
 
 ## 🧩 Node & npm Support
 
-- **Node.js**: `>=20.9.0 <23.0.0` (verified on **Node 22.17.1**)  
+- **Node.js**: `>=20.9.0` (verified on **Node 22.17.1**)  
 - **npm**: `>=9.0.0`
 
 The library is written in TypeScript and compiled to NodeNext-compatible JavaScript.
@@ -51,15 +52,20 @@ The library is written in TypeScript and compiled to NodeNext-compatible JavaScr
 
 ## 🔧 Basic Usage
 
-The library exposes two main utilities:
+The library exposes three main utilities:
 
 - `performSetup` – prepares temporary spec files, optionally splitting multi-outline files  
+- `performUniqueScenarioSetup` – creates one complete scenario definition per file using a tag expression
 - `processFeatureFiles` – converts `Scenario Outline`s into concrete `Scenario`s by applying `Examples`
 
 ### Example (TypeScript / NodeNext)
 
 ```ts
-import { processFeatureFiles, performSetup } from "custom-gherkin-utils";
+import {
+  performSetup,
+  performUniqueScenarioSetup,
+  processFeatureFiles,
+} from "custom-gherkin-utils";
 
 async function run() {
   await performSetup({
@@ -67,6 +73,14 @@ async function run() {
     sourceSpecDirectory: "./samplefiles",
     tmpSpecDirectory: "./tmp",
     tagExpression: "@ruleTag3", // Only keep scenarios matching this tag expression
+  });
+
+  await performUniqueScenarioSetup({
+    cleanTmpSpecDirectory: true,
+    sourceSpecDirectory: "./samplefiles",
+    tmpSpecDirectory: "./unique-scenarios",
+    tagExpression: "@smoke and not @wip",
+    removeTags: ["@internal", "@qa-*"], // optional: strip matching tags from output
   });
 
   // Convert scenario outlines to scenarios by replacing placeholders
@@ -98,6 +112,29 @@ Prepares a temporary folder of `.feature` files, where each scenario (or scenari
 - **`tagExpression?`**: optional [Cucumber tag expression](https://github.com/cucumber/tag-expressions) used to filter scenarios  
 
 Use this before running tools that expect one scenario per file.
+
+### `performUniqueScenarioSetup(options: UniqueScenarioSetupParams): Promise<void>`
+
+Filters using standard Cucumber tag-expression and pickle semantics, then writes each
+matching `Scenario` or `Scenario Outline` exactly once, as a single self-contained file.
+
+A matching outline keeps only the `Examples` blocks that matched; blocks that did not
+match are removed. Because Gherkin tags apply to a whole `Examples` block, blocks are
+kept or dropped as a unit, with all of their rows. When the match comes from an
+inherited `Feature`, `Rule`, or `Scenario` tag, every block matches and all are kept.
+
+Feature/Rule backgrounds, inherited tags, comments, dialect keywords, data tables,
+and doc strings are preserved.
+
+- **`tagExpression`**: required Cucumber tag expression
+- **`sourceSpecDirectory`**, **`tmpSpecDirectory`**, and **`cleanTmpSpecDirectory`**:
+  same meanings as `performSetup`
+- **`singleFile?`**: process one file instead of recursively finding `.feature` files
+- **`language?`**: default dialect for sources without a `# language:` declaration
+- **`removeTags?`**: optional glob patterns (`*` / `?`) matched against full tag names
+  including `@`. Matching tags are removed from Feature, Rule, Scenario, and
+  Examples tag lines after filtering. Omitted or `[]` leaves tags unchanged.
+  Tags that appear in steps, comments, or doc strings are not rewritten.
 
 ### `processFeatureFiles(pattern: string): Promise<void>`
 
